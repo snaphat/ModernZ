@@ -569,7 +569,6 @@ local state = {
     osd = mp.create_osd_overlay("ass-events"),
     buffering = false,
     new_file_flag = false,                  -- flag to detect new file starts
-    temp_visibility_mode = nil,             -- store temporary visibility mode state
     chapter_list = {},                      -- sorted by time
     visibility_modes = {},                  -- visibility_modes to cycle through
     mute = false,
@@ -3582,9 +3581,11 @@ local function visibility_mode(mode, no_osd)
         for i, allowed_mode in ipairs(state.visibility_modes) do
             if i == #state.visibility_modes then
                 mode = state.visibility_modes[1]
+                user_opts.visibility = mode
                 break
             elseif user_opts.visibility == allowed_mode then
                 mode = state.visibility_modes[i + 1]
+                user_opts.visibility = mode
                 break
             end
         end
@@ -3603,7 +3604,6 @@ local function visibility_mode(mode, no_osd)
         return
     end
 
-    user_opts.visibility = mode
     mp.set_property_native("user-data/osc/visibility", mode)
 
     if not no_osd and tonumber(mp.get_property("osd-level")) >= 1 then
@@ -3650,11 +3650,6 @@ mp.observe_property("pause", "bool", function(name, enabled)
     if user_opts.showonpause and user_opts.visibility ~= "never" then
         state.enabled = enabled
         if enabled then
-            -- save mode if a temporary change is needed
-            if not state.temp_visibility_mode and user_opts.visibility ~= "always" then
-                state.temp_visibility_mode = user_opts.visibility
-            end
-
             if user_opts.keeponpause then
                 -- set visibility to "always" temporarily
                 visibility_mode("always", true)
@@ -3662,14 +3657,7 @@ mp.observe_property("pause", "bool", function(name, enabled)
                 show_osc()
             end
         else
-            -- restore mode if it was changed temporarily
-            if state.temp_visibility_mode then
-                visibility_mode(state.temp_visibility_mode, true)
-                state.temp_visibility_mode = nil
-            else
-                -- respect "always" mode on unpause
-                visibility_mode(user_opts.visibility, true)
-            end
+            visibility_mode(user_opts.visibility, true)
         end
     end
 end)
